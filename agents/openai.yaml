@@ -1,4 +1,4 @@
 interface:
   display_name: "Fetch Cross-Market Data"
-  short_description: "Fetch FRED, VIXCentral, Macrotrends, Yahoo, Westmetall, EIA, and Multpl data"
-  default_prompt: "Use $fetch-cross-market-data to fetch FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV, or Multpl market data into this workspace."
+  short_description: "Fetch FRED, VIXCentral, CBOE, vix_utils, Macrotrends, Yahoo, Westmetall, EIA, and Multpl data"
+  default_prompt: "Use $fetch-cross-market-data to fetch FRED, VIXCentral, CBOE, vix_utils, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV, or Multpl market data into this workspace."
