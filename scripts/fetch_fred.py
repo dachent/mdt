@@ -58,7 +58,7 @@ def build_url(args: argparse.Namespace) -> str:
 
 
 def fetch_csv(url: str) -> bytes:
-    request = Request(url, headers={"User-Agent": "Codex fetch-cross-market-data/1.0"})
+    request = Request(url, headers={"User-Agent": "Codex agent-market-data-terminal/1.0"})
     with urlopen(request, timeout=60) as response:
         payload = response.read()
     if payload.lstrip().startswith(b"<"):

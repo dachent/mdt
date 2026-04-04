@@ -38,7 +38,7 @@ XHR_HEADERS = {
     "Referer": f"{BASE_URL}/",
     "Origin": BASE_URL,
 }
-USER_AGENT = "Codex fetch-cross-market-data/1.0"
+USER_AGENT = "Codex agent-market-data-terminal/1.0"
 
 
 def parse_args() -> argparse.Namespace:
