@@ -2,14 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
-import os
-import secrets
-import subprocess
 import sys
 from datetime import date
 from pathlib import Path
-from shutil import which
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -41,6 +38,7 @@ XHR_HEADERS = {
     "Referer": f"{BASE_URL}/",
     "Origin": BASE_URL,
 }
+USER_AGENT = "Codex agent-market-data-terminal/1.0"
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,7 +65,7 @@ def validate_args(args: argparse.Namespace) -> None:
 
 
 def fetch_text(url: str, *, headers: dict[str, str] | None = None) -> str:
-    request_headers = {"User-Agent": "Codex fetch-cross-market-data/1.0"}
+    request_headers = {"User-Agent": USER_AGENT}
     if headers:
         request_headers.update(headers)
     request = Request(url, headers=request_headers)
@@ -93,14 +91,14 @@ def parse_json_text(raw_text: str) -> Any | None:
         return None
 
 
-def is_placeholder_or_html(raw_text: str, parsed: Any | None) -> bool:
+def is_placeholder_or_invalid(raw_text: str, parsed: Any | None, *, accept_html: bool) -> bool:
     stripped = raw_text.strip().strip('"').strip().lower()
     if stripped in PLACEHOLDER_RESPONSES:
         return True
     if raw_text.lstrip().startswith("<!DOCTYPE") or raw_text.lstrip().startswith("<html"):
-        return True
+        return not accept_html
     if parsed is None:
-        return True
+        return not accept_html
     if isinstance(parsed, str) and parsed.strip().lower() in PLACEHOLDER_RESPONSES:
         return True
     return False
@@ -136,84 +134,86 @@ def decode_historical_curve(payload: Any) -> list[dict[str, Any]]:
     return curve
 
 
-def resolve_npx() -> str:
-    npx_path = which("npx") or which("npx.cmd")
-    if not npx_path:
-        raise RuntimeError("npx is required for the VIXCentral browser fallback.")
-    return npx_path
-
-
-def run_playwright(npx_path: str, session: str, cache_dir: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    env = os.environ.copy()
-    env["NPM_CONFIG_CACHE"] = str(cache_dir)
-    env["PLAYWRIGHT_BROWSERS_PATH"] = str(cache_dir / "ms-playwright")
-    env["PLAYWRIGHT_DAEMON_SESSION_DIR"] = str(cache_dir / "ms-playwright" / "daemon")
-    command = [
-        npx_path,
-        "--yes",
-        "--package",
-        "@playwright/cli",
-        "playwright-cli",
-        "--session",
-        session,
-        *args,
-    ]
+def import_requests_module():
     try:
-        return subprocess.run(
-            command,
-            check=True,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=180,
-        )
-    except subprocess.CalledProcessError as exc:
-        details = (exc.stderr or exc.stdout or "").strip()
-        raise RuntimeError(f"Playwright command failed: {' '.join(command)}\n{details}") from exc
+        return importlib.import_module("requests")
+    except ImportError as exc:
+        raise RuntimeError("VIXCentral session fallback requires the 'requests' package.") from exc
 
 
-def fetch_with_playwright(args: argparse.Namespace, output_path: Path) -> tuple[Any, str]:
-    npx_path = resolve_npx()
-    cache_dir = output_path.parent / ".npm-cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    session = f"vixcentral-{secrets.token_hex(4)}"
-    base_page = f"{BASE_URL}/"
+def fetch_with_requests_session(endpoint: str) -> str:
+    requests = import_requests_module()
+    session = requests.Session()
 
-    if args.mode == "live":
-        route = "/ajax_update"
-    elif args.days is not None:
-        route = f"/historical/?days={args.days}"
-    else:
-        route = f"/ajax_historical?n1={args.date}"
+    home_response = session.get(f"{BASE_URL}/", headers={"User-Agent": USER_AGENT}, timeout=60)
+    home_response.raise_for_status()
 
-    eval_code = (
-        "async () => {"
-        f"  const response = await fetch({json.dumps(route)});"
-        "  return await response.text();"
-        "}"
+    response = session.get(endpoint, headers={"User-Agent": USER_AGENT, **XHR_HEADERS}, timeout=60)
+    response.raise_for_status()
+    return response.text
+
+
+def fetch_with_curl_cffi(endpoint: str) -> str:
+    try:
+        curl_requests = importlib.import_module("curl_cffi.requests")
+        curl_module = importlib.import_module("curl_cffi")
+    except ImportError as exc:
+        raise RuntimeError("Optional VIXCentral TLS impersonation fallback requires the 'curl_cffi' package.") from exc
+
+    http_version = getattr(curl_module, "CurlHttpVersion").V1_1
+    session = curl_requests.Session()
+
+    home_response = session.get(
+        f"{BASE_URL}/",
+        impersonate="chrome",
+        http_version=http_version,
+        headers={"User-Agent": USER_AGENT},
+        timeout=60,
     )
+    if getattr(home_response, "status_code", 200) >= 400:
+        raise RuntimeError(f"curl_cffi homepage priming failed with status {home_response.status_code}")
 
-    try:
-        run_playwright(npx_path, session, cache_dir, "open", "--browser", "msedge", base_page)
-        result = run_playwright(npx_path, session, cache_dir, "--raw", "eval", eval_code)
-        raw_text = result.stdout.strip()
-        parsed = parse_json_text(raw_text)
-        if parsed is None:
-            return raw_text, raw_text
-        return parsed, raw_text
-    finally:
-        try:
-            run_playwright(npx_path, session, cache_dir, "close")
-        except Exception:
-            pass
+    response = session.get(
+        endpoint,
+        impersonate="chrome",
+        http_version=http_version,
+        headers={"User-Agent": USER_AGENT, **XHR_HEADERS},
+        timeout=60,
+    )
+    if getattr(response, "status_code", 200) >= 400:
+        raise RuntimeError(f"curl_cffi endpoint fetch failed with status {response.status_code}")
+    return response.text
 
 
-def build_output(args: argparse.Namespace, endpoint: str, raw_text: str, payload: Any, used_browser_fallback: bool) -> dict[str, Any]:
+def fetch_payload(args: argparse.Namespace, endpoint: str) -> tuple[Any, str, str]:
+    accept_html = args.mode == "historical" and args.days is not None
+
+    raw_text = fetch_text(endpoint, headers=XHR_HEADERS)
+    parsed = parse_json_text(raw_text)
+    if not is_placeholder_or_invalid(raw_text, parsed, accept_html=accept_html):
+        return parsed if parsed is not None else raw_text, raw_text, "direct"
+
+    raw_text = fetch_with_requests_session(endpoint)
+    parsed = parse_json_text(raw_text)
+    if not is_placeholder_or_invalid(raw_text, parsed, accept_html=accept_html):
+        return parsed if parsed is not None else raw_text, raw_text, "requests_session"
+
+    raw_text = fetch_with_curl_cffi(endpoint)
+    parsed = parse_json_text(raw_text)
+    if not is_placeholder_or_invalid(raw_text, parsed, accept_html=accept_html):
+        return parsed if parsed is not None else raw_text, raw_text, "curl_cffi"
+
+    raise RuntimeError("VIXCentral returned placeholder or non-JSON content after direct, session-primed, and curl_cffi retries.")
+
+
+def build_output(args: argparse.Namespace, endpoint: str, raw_text: str, payload: Any, fetch_strategy: str) -> dict[str, Any]:
+    used_fallback = fetch_strategy != "direct"
     output: dict[str, Any] = {
         "source": "vixcentral",
         "mode": args.mode,
         "endpoint": endpoint,
-        "used_browser_fallback": used_browser_fallback,
+        "used_browser_fallback": used_fallback,
+        "fetch_strategy": fetch_strategy,
         "raw": payload,
     }
     if args.date:
@@ -239,18 +239,9 @@ def main() -> int:
     try:
         validate_args(args)
         endpoint = direct_route_for(args)
-        raw_text = fetch_text(endpoint, headers=XHR_HEADERS)
-        parsed = parse_json_text(raw_text)
-        used_browser_fallback = False
-
-        if is_placeholder_or_html(raw_text, parsed):
-            payload, raw_text = fetch_with_playwright(args, Path(args.output).expanduser().resolve())
-            used_browser_fallback = True
-        else:
-            payload = parsed
-
-        artifact = build_output(args, endpoint, raw_text, payload, used_browser_fallback)
-    except (HTTPError, URLError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+        payload, raw_text, fetch_strategy = fetch_payload(args, endpoint)
+        artifact = build_output(args, endpoint, raw_text, payload, fetch_strategy)
+    except (HTTPError, URLError, ValueError, RuntimeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
@@ -258,8 +249,8 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Saved VIXCentral artifact to {output_path}")
-    if artifact.get("used_browser_fallback"):
-        print("Browser fallback used.")
+    if artifact.get("fetch_strategy") != "direct":
+        print(f"Fallback strategy used: {artifact['fetch_strategy']}")
     return 0
 
 

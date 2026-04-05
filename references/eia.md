@@ -49,6 +49,7 @@ This skill supports EIA DNAV summary pages plus legacy history pages in both sta
 
 - Prefer the linked `hist_xls/*.xls` workbook as the authoritative machine-readable source for history parsing.
 - In the workbook, worksheet `Data 1` already exposes normalized `Date | Value` rows, so parsed output should come from that sheet first.
+- The workbook can be read with lightweight Python-native `.xls` support such as `xlrd`; do not require Windows Excel COM for this path.
 - Daily `D` workbooks expand to dated observations.
 - Weekly `W` workbooks expand to dated observations keyed by week-ending date.
 - Monthly `M` workbooks expand to first-of-month observations.

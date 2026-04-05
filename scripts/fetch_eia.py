@@ -2,14 +2,10 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import html
 import json
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
 from datetime import date, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
@@ -28,7 +24,10 @@ DOWNLOAD_LINK_PATTERN = re.compile(
     re.IGNORECASE,
 )
 TITLE_PATTERN = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
-META_REFRESH_PATTERN = re.compile(r'<meta[^>]+http-equiv=["\']refresh["\'][^>]+content=["\'][^"\']*url=(?P<target>[^"\']+)["\']', re.IGNORECASE)
+META_REFRESH_PATTERN = re.compile(
+    r'<meta[^>]+http-equiv=["\']refresh["\'][^>]+content=["\'][^"\']*url=(?P<target>[^"\']+)["\']',
+    re.IGNORECASE,
+)
 SUMMARY_SECTION_PATTERN = re.compile(
     r"<!--Start of Inner Data Table -->(.*?)<!--End of Inner Data Table -->",
     re.IGNORECASE | re.DOTALL,
@@ -41,62 +40,6 @@ FREQUENCY_NAME_TO_CODE = {
     "monthly": "M",
     "annual": "A",
 }
-POWERSHELL_EXTRACT_SCRIPT = r"""
-param(
-    [string]$InputPath,
-    [string]$DataSheetPath
-)
-
-$ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-
-$excel = $null
-$workbook = $null
-$contents = $null
-$dataSheet = $null
-
-try {
-    $excel = New-Object -ComObject Excel.Application
-    $excel.Visible = $false
-    $excel.DisplayAlerts = $false
-
-    $workbook = $excel.Workbooks.Open($InputPath, 0, $false)
-    $contents = $workbook.Worksheets.Item('Contents')
-    $dataSheet = $workbook.Worksheets.Item('Data 1')
-
-    $dataSheet.Activate() | Out-Null
-    $workbook.SaveAs($DataSheetPath, 42)
-
-    $payload = [ordered]@{
-        frequency = [string]$contents.Cells.Item(7, 5).Text
-        release_date = [string]$contents.Cells.Item(9, 3).Text
-        next_release_date = [string]$contents.Cells.Item(10, 3).Text
-        excel_file_name = [string]$contents.Cells.Item(11, 3).Text
-        available_from_web_page = [string]$contents.Cells.Item(12, 3).Text
-        sourcekey = [string]$dataSheet.Cells.Item(2, 2).Text
-        value_label = [string]$dataSheet.Cells.Item(3, 2).Text
-    }
-
-    $payload | ConvertTo-Json -Compress
-}
-finally {
-    if ($workbook) {
-        $workbook.Close($false)
-    }
-    if ($excel) {
-        $excel.Quit()
-    }
-
-    foreach ($com in @($dataSheet, $contents, $workbook, $excel)) {
-        if ($com) {
-            [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($com)
-        }
-    }
-
-    [GC]::Collect()
-    [GC]::WaitForPendingFinalizers()
-}
-"""
 
 
 def parse_args() -> argparse.Namespace:
@@ -119,7 +62,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def fetch_bytes(url: str) -> bytes:
-    request = Request(url, headers={"User-Agent": "Codex fetch-cross-market-data/1.0"})
+    request = Request(url, headers={"User-Agent": "Codex agent-market-data-terminal/1.0"})
     with urlopen(request, timeout=60) as response:
         return response.read()
 
@@ -134,6 +77,16 @@ def clean_text(value: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def clean_scalar(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return str(value)
+    return clean_text(str(value))
+
+
 def normalize_number(value: float) -> int | float:
     return int(value) if value.is_integer() else value
 
@@ -146,6 +99,16 @@ def parse_number(value: str) -> int | float | None:
         return normalize_number(float(cleaned.replace(",", "")))
     except ValueError:
         return None
+
+
+def parse_numeric_cell(value: object) -> int | float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        if isinstance(value, float) and (value != value):
+            return None
+        return normalize_number(float(value))
+    return parse_number(str(value))
 
 
 def parse_short_date(value: str) -> str:
@@ -470,51 +433,12 @@ def parse_history_page_html(page_url: str, html_text: str, download_url: str | N
     }
 
 
-def resolve_powershell() -> str:
-    executable = shutil.which("powershell") or shutil.which("pwsh")
-    if not executable:
-        raise RuntimeError("PowerShell is required for EIA XLS parsing on this Windows environment.")
-    return executable
-
-
-def read_data1_rows(data_sheet_path: Path, frequency: str) -> tuple[str | None, str, list[dict[str, object]]]:
-    with data_sheet_path.open("r", encoding="utf-16", newline="") as handle:
-        reader = csv.reader(handle, delimiter="\t")
-        raw_rows = list(reader)
-
-    if len(raw_rows) < 4:
-        raise RuntimeError("EIA XLS export did not contain the expected Data 1 rows.")
-
-    sourcekey = clean_text(raw_rows[1][1]) if len(raw_rows[1]) > 1 else None
-    value_label = clean_text(raw_rows[2][1]) if len(raw_rows[2]) > 1 else "EIA Series"
-    rows: list[dict[str, object]] = []
-
-    for raw_row in raw_rows[3:]:
-        if len(raw_row) < 2:
-            continue
-        date_text = clean_text(raw_row[0])
-        value_text = clean_text(raw_row[1])
-        if not date_text or not value_text:
-            continue
-        parsed_value = parse_number(value_text)
-        if parsed_value is None:
-            continue
-        rows.append({"date": parse_xls_date(date_text, frequency), "value": parsed_value})
-
-    return sourcekey or None, value_label, rows
-
-
-def parse_xls_date(value: str, frequency: str) -> str:
-    if frequency in {"D", "W"}:
-        return datetime.strptime(value, "%b %d, %Y").date().isoformat()
-    if frequency == "M":
-        return datetime.strptime(value, "%b-%Y").date().isoformat()
-    if frequency == "A":
-        year_match = re.match(r"^\d{4}$", value)
-        if not year_match:
-            raise RuntimeError(f"Unexpected annual EIA XLS date value: {value}")
-        return f"{value}-01-01"
-    raise RuntimeError(f"Unsupported EIA history frequency: {frequency}")
+def import_xlrd():
+    try:
+        import xlrd  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("EIA XLS parsing requires the optional 'xlrd' package.") from exc
+    return xlrd
 
 
 def normalize_frequency_code(value: str | None) -> str | None:
@@ -524,56 +448,112 @@ def normalize_frequency_code(value: str | None) -> str | None:
     return FREQUENCY_NAME_TO_CODE.get(cleaned, cleaned.upper())
 
 
+def extract_workbook_metadata(contents_sheet) -> dict[str, str | None]:
+    metadata: dict[str, str | None] = {
+        "title": None,
+        "frequency": None,
+        "release_date": None,
+        "next_release_date": None,
+        "excel_file_name": None,
+        "available_from_web_page": None,
+    }
+    for row_index in range(contents_sheet.nrows):
+        row = [clean_scalar(value) for value in contents_sheet.row_values(row_index)]
+        if len(row) > 1 and row[1] == "Data 1":
+            metadata["title"] = row[2] if len(row) > 2 else None
+            metadata["frequency"] = row[4] if len(row) > 4 else None
+            continue
+
+        label = row[1].rstrip(":").lower() if len(row) > 1 else ""
+        value = row[2] if len(row) > 2 else None
+        if label == "release date":
+            metadata["release_date"] = value
+        elif label == "next release date":
+            metadata["next_release_date"] = value
+        elif label == "excel file name":
+            metadata["excel_file_name"] = value
+        elif label == "available from web page":
+            metadata["available_from_web_page"] = value
+    return metadata
+
+
+def xls_date_to_iso(xlrd_module, workbook, value: object, frequency: str) -> str:
+    if isinstance(value, (int, float)):
+        parsed_date = xlrd_module.xldate.xldate_as_datetime(float(value), workbook.datemode).date()
+    else:
+        text_value = clean_scalar(value)
+        if not text_value:
+            raise RuntimeError("Encountered an empty EIA XLS date cell.")
+        if frequency in {"D", "W"}:
+            parsed_date = datetime.strptime(text_value, "%b %d, %Y").date()
+        elif frequency == "M":
+            parsed_date = datetime.strptime(text_value, "%b-%Y").date()
+        elif frequency == "A":
+            year_match = re.match(r"^\d{4}$", text_value)
+            if not year_match:
+                raise RuntimeError(f"Unexpected annual EIA XLS date value: {text_value}")
+            return f"{text_value}-01-01"
+        else:
+            raise RuntimeError(f"Unsupported EIA history frequency: {frequency}")
+
+    if frequency == "M":
+        return f"{parsed_date.year}-{parsed_date.month:02d}-01"
+    if frequency == "A":
+        return f"{parsed_date.year}-01-01"
+    return parsed_date.isoformat()
+
+
+def extract_history_rows_from_workbook(workbook, xlrd_module, frequency: str) -> tuple[str | None, str, list[dict[str, object]]]:
+    try:
+        data_sheet = workbook.sheet_by_name("Data 1")
+    except Exception as exc:
+        raise RuntimeError("EIA XLS workbook did not include the expected 'Data 1' worksheet.") from exc
+
+    if data_sheet.nrows < 4 or data_sheet.ncols < 2:
+        raise RuntimeError("EIA XLS workbook did not contain the expected 'Data 1' layout.")
+
+    sourcekey = clean_scalar(data_sheet.cell_value(1, 1)) or None
+    value_label = clean_scalar(data_sheet.cell_value(2, 1)) or "EIA Series"
+    rows: list[dict[str, object]] = []
+
+    for row_index in range(3, data_sheet.nrows):
+        date_cell = data_sheet.cell_value(row_index, 0)
+        value_cell = data_sheet.cell_value(row_index, 1)
+        if clean_scalar(date_cell) == "":
+            continue
+        parsed_value = parse_numeric_cell(value_cell)
+        if parsed_value is None:
+            continue
+        rows.append({"date": xls_date_to_iso(xlrd_module, workbook, date_cell, frequency), "value": parsed_value})
+
+    return sourcekey, value_label, rows
+
+
 def parse_history_page_xls(page_url: str, download_url: str, html_text: str) -> dict[str, object]:
     release_date, next_release_date = extract_release_dates(html_text)
+    inferred_series_id, inferred_frequency = infer_history_details(page_url, download_url)
+    xlrd_module = import_xlrd()
+    workbook = xlrd_module.open_workbook(file_contents=fetch_bytes(download_url))
 
-    with tempfile.TemporaryDirectory(prefix="eia_xls_") as temp_dir_name:
-        temp_dir = Path(temp_dir_name)
-        xls_path = temp_dir / Path(urlparse(download_url).path).name
-        xls_path.write_bytes(fetch_bytes(download_url))
+    try:
+        contents_sheet = workbook.sheet_by_name("Contents")
+    except Exception as exc:
+        raise RuntimeError("EIA XLS workbook did not include the expected 'Contents' worksheet.") from exc
 
-        data_sheet_path = temp_dir / "data1.txt"
-        script_path = temp_dir / "extract_eia_history.ps1"
-        script_path.write_text(POWERSHELL_EXTRACT_SCRIPT, encoding="utf-8")
-
-        powershell = resolve_powershell()
-        result = subprocess.run(
-            [
-                powershell,
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(script_path),
-                str(xls_path),
-                str(data_sheet_path),
-            ],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=180,
-            check=True,
-        )
-
-        metadata = json.loads(result.stdout.strip() or "{}")
-
-        inferred_series_id, inferred_frequency = infer_history_details(page_url, download_url)
-        sourcekey, value_label, rows = read_data1_rows(
-            data_sheet_path,
-            normalize_frequency_code(metadata.get("frequency")) or inferred_frequency,
-        )
+    workbook_metadata = extract_workbook_metadata(contents_sheet)
+    frequency = normalize_frequency_code(workbook_metadata.get("frequency")) or inferred_frequency
+    sourcekey, value_label, rows = extract_history_rows_from_workbook(workbook, xlrd_module, frequency)
 
     return {
         "provider": "eia",
         "page_type": "history",
         "source_url": page_url,
         "download_url": download_url,
-        "title": value_label,
+        "title": value_label or workbook_metadata.get("title") or extract_title(html_text),
         "series_id": sourcekey or inferred_series_id,
-        "frequency": normalize_frequency_code(metadata.get("frequency")) or inferred_frequency,
-        "release_date": parse_release_date(metadata.get("release_date")) or release_date,
-        "next_release_date": parse_release_date(metadata.get("next_release_date")) or next_release_date,
+        "frequency": frequency,
+        "release_date": parse_release_date(workbook_metadata.get("release_date")) or release_date,
+        "next_release_date": parse_release_date(workbook_metadata.get("next_release_date")) or next_release_date,
         "parsed_from": "xls",
         "rows": rows,
     }
@@ -590,7 +570,7 @@ def parse_history_page(page_url: str, html_text: str, download_url: str | None, 
 
     try:
         return parse_history_page_xls(page_url, download_url, html_text)
-    except (json.JSONDecodeError, subprocess.SubprocessError, RuntimeError) as exc:
+    except RuntimeError as exc:
         if source == "xls":
             raise RuntimeError(f"EIA XLS parsing failed: {exc}") from exc
         parsed_output = parse_history_page_html(page_url, html_text, download_url)
@@ -638,7 +618,7 @@ def main() -> int:
         print(f"Saved parsed EIA artifact to {output_path}")
         print(f"page_type={page_kind} rows={len(parsed_output.get('rows', []))}")
         return 0
-    except (HTTPError, URLError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+    except (HTTPError, URLError, RuntimeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

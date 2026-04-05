@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def fetch_text(url: str, *, referer: str | None = None) -> str:
-    headers = {"User-Agent": "Codex fetch-cross-market-data/1.0"}
+    headers = {"User-Agent": "Codex agent-market-data-terminal/1.0"}
     if referer:
         headers["Referer"] = referer
     request = Request(url, headers=headers)

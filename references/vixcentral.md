@@ -8,23 +8,29 @@ Treat VIXCentral as HTTP-only.
 - `http://vixcentral.com/ajax_historical?n1=YYYY-MM-DD`
 - `http://vixcentral.com/historical/?days=30`
 
-The homepage help text also links to `http://vixcentral.com/historical/?days=30` for bulk historical downloads.
+The homepage help text links to `http://vixcentral.com/historical/?days=30` for bulk historical downloads. That route is an HTML page, not a JSON XHR payload.
 
 ## Direct-call behavior
 
-Direct HTTP calls can return placeholders such as:
-
-- `"hello"`
-- `"hello historical"`
-
-In practice, the working direct path is to mimic the site's same-origin jQuery request headers, especially:
+The live JSON routes currently work with same-origin XHR-style headers:
 
 - `X-Requested-With: XMLHttpRequest`
 - `Accept: application/json, text/javascript, */*; q=0.01`
 - `Referer: http://vixcentral.com/`
 - `Origin: http://vixcentral.com`
 
-If the endpoint still returns placeholders or non-JSON after that, use browser automation instead of trusting the response.
+Some responses can still fall back to placeholder bodies such as:
+
+- `"hello"`
+- `"hello historical"`
+
+When that happens, retry without a browser first:
+
+1. Prime a `requests.Session()` by loading `http://vixcentral.com/`
+2. Retry the same route through that session
+3. If needed, retry once more with `curl_cffi.requests.Session(..., impersonate="chrome")`
+
+Do not use Playwright for this provider unless the site contract changes again.
 
 ## `ajax_historical` shape
 
@@ -55,12 +61,8 @@ The live bundle is a positional array. Important indexes from the client code:
 
 The page also stores `1` as quote-time data.
 
-## Browser fallback
+## Guidance
 
-If the direct response is placeholder text or non-JSON:
-
-1. Open `http://vixcentral.com/` in a real browser context.
-2. Fetch the same-origin route from the loaded page.
-3. Preserve the raw payload and attach a decoded summary in the output artifact.
-
-Use the installed Playwright workflow for this path. The bundled helper script handles the switch automatically.
+- Prefer `ajax_update` and `ajax_historical` over scraping rendered tables.
+- Treat `historical/?days=N` as a native bulk-history HTML page.
+- Preserve the raw positional payload and add a decoded summary in parsed output.
