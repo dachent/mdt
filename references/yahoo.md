@@ -1,41 +1,55 @@
-# Yahoo Finance via `yf_marketdata`
+# Yahoo Finance via `yfinance`
 
-Reuse the existing `dachent/yf_marketdata` project instead of re-implementing Yahoo logic in this skill.
+Use direct `yfinance` inside aMDT instead of delegating Yahoo support to an external repository.
 
-## Run command
+## Helper command
 
 ```powershell
-python -m yf_marketdata .\yf_marketdata_live.yaml
+python .\scripts\fetch_yfinance.py --dataset history --ticker SPY --ticker TLT --start 2020-01-01 --end today --interval 1d --format parsed --output .\outputs\yfinance_history.json
+python .\scripts\fetch_yfinance.py --dataset current_snapshot --ticker ^VIX --ticker SPY --format parsed --output .\outputs\yfinance_snapshot.json
 ```
 
-## Confirmed config sections
+## Supported datasets
 
-- `source`
 - `history`
-- `lookup`
-- `fetch`
-- `outputs`
-
-## Confirmed datasets
-
-- `history_yf`
-- `history_raw`
-- `history_adjusted`
-- `history_summary`
-- `ticker_search`
 - `current_snapshot`
 
-## Useful repo facts
+## Supported controls
 
-- The module entrypoint is `yf_marketdata/__main__.py`.
-- `outputs.root_dir`, dataset layout, and `outputs.format` control the written artifacts.
-- `lookup.full_quote_results` must be true when `ticker_search` is enabled.
-- `current_snapshot` is the wide one-row-per-ticker dataset for current quote, fundamentals, targets, and EPS trend.
+- repeatable `--ticker`
+- `--format raw|parsed`
+- `--output`
+- history-only:
+  - `--start`
+  - `--end`
+  - `--interval`
+  - `--prepost`
+- operational:
+  - `--batch-size`
+  - `--threads`
+  - `--timeout-seconds`
+  - `--retry-attempts`
+  - `--retry-backoff-seconds`
+  - `--cache-dir`
 
-## Expected wrapper behavior
+## Output behavior
 
-The helper script should:
+- `history`
+  - raw mode writes CSV with `Ticker`, `Date`, `Open`, `High`, `Low`, `Close`, `Adj Close`, `Volume`, `Dividends`, and `Stock Splits`
+  - parsed mode writes JSON with `provider`, `dataset`, `columns`, and `rows`
+- `current_snapshot`
+  - raw mode writes one-row-per-ticker CSV
+  - parsed mode writes JSON with `provider`, `dataset`, `columns`, and `rows`
 
-1. Validate the repo path and config path.
-2. Confirm the repo looks like `yf_marketdata`.
-3. Run `python -m yf_marketdata <config.yaml>` with the repo as the working directory.
+## Snapshot notes
+
+- Canonical columns are preserved when Yahoo exposes them, for example quote timestamp, last price, bid/ask, volume, moving averages, market cap, EV, EPS, and target-price fields.
+- Additional Yahoo fields are preserved as wide passthrough columns such as:
+  - `Info.*`
+  - `AnalystTargets.*`
+  - `EpsTrend.*`
+
+## Guidance
+
+- Keep Yahoo requests direct and lightweight; do not require a separate repo checkout or YAML export config.
+- If `--cache-dir` is used, it must resolve inside the current workspace.

@@ -34,6 +34,8 @@ Only use this schema when the user explicitly asks to combine providers.
   - `source=cboe`, `dataset=VIX_History`, `series_id=VIX`
 - vix_utils
   - `source=vix_utils`, `dataset=spot-wide`, `series_id=` blank unless the downstream task wants a symbol-level split
+- Yahoo Finance
+  - `source=yahoo`, `dataset=history`, `series_id=` blank unless the downstream task wants a ticker-level split
 - BEA
   - `source=bea`, `dataset=direct`, `series_id=pi0126`
 - FiscalData

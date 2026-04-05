@@ -18,7 +18,7 @@ Agent Market Data Terminal (aMDT) is a lightweight LLM skill built to give both 
 - Westmetall
 - EIA DNAV
 - Multpl
-- Yahoo Finance via [`dachent/yf_marketdata`](https://github.com/dachent/yf_marketdata)
+- Yahoo Finance via direct `yfinance`
 
 The skill is native-first. It prefers direct machine-readable provider sources such as BEA public files, Treasury FiscalData JSON, Treasury rate feeds, BLS v1 JSON, World Bank indicator JSON, OECD SDMX-JSON, FRED CSV, Macrotrends JSON, Westmetall chart XML, linked EIA XLS workbooks for history pages, VIXCentral XHR-style routes, CBOE CSV endpoints, `vix_utils`' CBOE-backed history loaders, and Multpl's inline chart payload.
 
@@ -38,7 +38,6 @@ After installation, Codex can use the skill as `$agent-market-data-terminal`.
 - [agents/openai.yaml](./agents/openai.yaml): Codex UI metadata
 - [references/](./references/): provider-specific guidance and source contracts
 - [scripts/](./scripts/): fetch helpers for each provider
-- [assets/yf_marketdata.template.yaml](./assets/yf_marketdata.template.yaml): starter config for Yahoo exports
 
 ## Notes
 
@@ -48,13 +47,15 @@ After installation, Codex can use the skill as `$agent-market-data-terminal`.
 - Treasury yield-curve and bill-rate data come from Treasury's official TextView-linked CSV/XML feeds, not FiscalData.
 - Westmetall chart parsing is XML-first. Raw chart fetches remain XML-only, while parsed chart mode can fall back to the daily HTML table if the XML endpoint is temporarily unavailable.
 - `vix_utils` is exposed as a separate historical provider and keeps its cache inside a workspace-local directory when used through the bundled helper.
-- The Yahoo path reuses the upstream `yf_marketdata` CLI instead of reimplementing Yahoo logic inside this repo.
+- The Yahoo path uses direct `yfinance` inside this repo and keeps only the lightweight `history` and `current_snapshot` datasets.
 
 ## Optional Python dependencies
 
 Some helpers depend on lightweight optional packages:
 
 - `openpyxl` for parsed BEA `.xlsx` workbooks
+- `pandas` for the direct Yahoo helper and some dataframe-backed providers
+- `yfinance` for direct Yahoo Finance access
 - `xlrd` for EIA history workbook parsing
 - `curl_cffi` for the optional VIXCentral TLS-impersonation fallback
 - `vix_utils` for the standalone historical VIX term-structure provider

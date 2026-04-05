@@ -1,6 +1,6 @@
 ---
 name: "agent-market-data-terminal"
-description: "Use when tasks require a lightweight, no-auth market-data skill for BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, or dougransom/vix_utils. Prefer BEA public files and `Data.json`, Treasury FiscalData JSON, Treasury TextView-linked XML/CSV feeds, BLS public v1, World Bank indicator JSON, OECD SDMX-JSON, direct FRED CSV URLs, Macrotrends `/economic-data/{page_id}/{chart_frequency}` JSON, Westmetall chart XML from `/api/marketdata/{lang}/{field}/`, EIA linked XLS/history pages, Multpl inline `pi` chart payloads and table views, VIXCentral term-structure routes with lightweight session-based retries, direct and archive-discovered CBOE CSV endpoints, `vix_utils` for historical VIX term structure, and the `dachent/yf_marketdata` CLI for Yahoo Finance exports."
+description: "Use when tasks require a lightweight, no-auth market-data skill for BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, or dougransom/vix_utils. Prefer BEA public files and `Data.json`, Treasury FiscalData JSON, Treasury TextView-linked XML/CSV feeds, BLS public v1, World Bank indicator JSON, OECD SDMX-JSON, direct FRED CSV URLs, Macrotrends `/economic-data/{page_id}/{chart_frequency}` JSON, Westmetall chart XML from `/api/marketdata/{lang}/{field}/`, EIA linked XLS/history pages, Multpl inline `pi` chart payloads and table views, VIXCentral term-structure routes with lightweight session-based retries, direct and archive-discovered CBOE CSV endpoints, direct `yfinance` for Yahoo history and current snapshots, and `vix_utils` for historical VIX term structure."
 ---
 
 # Agent Market Data Terminal (aMDT)
@@ -60,7 +60,8 @@ Use this skill when a task needs lightweight, no-auth raw downloads, parsed tabl
   Open `references/vix_utils.md`, then use `scripts/fetch_vix_utils.py`.
   Use this provider for historical VIX futures/cash term structure when the user wants CBOE-backed research data instead of VIXCentral's live site routes.
 - Yahoo Finance
-  Open `references/yahoo.md`, use `assets/yf_marketdata.template.yaml` as a starting point, and run `scripts/run_yf_marketdata.py` against an existing `dachent/yf_marketdata` checkout.
+  Open `references/yahoo.md`, then use `scripts/fetch_yfinance.py`.
+  Keep Yahoo requests direct through `yfinance` and limit the helper surface to `history` and `current_snapshot`.
 
 ## Commands
 
@@ -80,7 +81,8 @@ python .\scripts\fetch_multpl.py --page-url "https://www.multpl.com/s-p-500-pe-r
 python .\scripts\fetch_cboe.py --url "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv" --format parsed --output .\outputs\cboe_vix_history.json
 python .\scripts\fetch_cboe.py --mode futures-archive --product VX --year 2013 --format parsed --output .\outputs\cboe_vx_archive_2013.json
 python .\scripts\fetch_vix_utils.py --dataset spot-wide --format parsed --output .\outputs\vix_utils_spot_wide.json
-python .\scripts\run_yf_marketdata.py --repo-path ..\yf_marketdata --config-path .\assets\yf_marketdata.template.yaml
+python .\scripts\fetch_yfinance.py --dataset history --ticker SPY --ticker TLT --start 2020-01-01 --end today --interval 1d --format parsed --output .\outputs\yfinance_history.json
+python .\scripts\fetch_yfinance.py --dataset current_snapshot --ticker ^VIX --ticker SPY --format parsed --output .\outputs\yfinance_snapshot.json
 ```
 
 ## When to load references
@@ -99,7 +101,7 @@ python .\scripts\run_yf_marketdata.py --repo-path ..\yf_marketdata --config-path
 - Open `references/multpl.md` for the inline `pi` array, table-by-year/month views, estimate markers, and Atom feed usage.
 - Open `references/cboe.md` for direct CSV endpoint patterns and parsed/raw guidance.
 - Open `references/vix_utils.md` for dataset routing and cache-directory handling.
-- Open `references/yahoo.md` for the confirmed `yf_marketdata` config structure and datasets.
+- Open `references/yahoo.md` for the direct `yfinance` helper contract, supported datasets, and snapshot-output notes.
 - Open `references/normalization.md` only when a task explicitly needs cross-source merging.
 
 ## Guardrails
@@ -117,4 +119,5 @@ python .\scripts\run_yf_marketdata.py --repo-path ..\yf_marketdata --config-path
 - If VIXCentral direct calls return `"hello"` or `"hello historical"`, let the helper script retry with session priming and optional `curl_cffi` instead of inventing data.
 - For CBOE futures archive requests, use the public settlement-archive page or known direct CSVs instead of scraping rendered tables.
 - For `vix_utils`, keep cache and downloaded data inside the workspace-local cache directory.
+- For Yahoo Finance, use direct `yfinance` through `fetch_yfinance.py`; do not require a separate repo checkout or YAML export config.
 - Do not normalize providers into one schema unless the user asked for that.
