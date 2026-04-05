@@ -2,7 +2,7 @@
 
 Agent Market Data Terminal (aMDT) is a lightweight LLM skill built to give both autonomous agents and cloud chatbots direct access to market and macro data for research and backtesting rule-based trading theories. The repo is intentionally designed around public endpoints that do not require API keys or authentication, so the skill stays easy to run and easy to distribute.
 
-`agent-market-data-terminal` is the Codex skill packaged by this repository, and it pulls market and macro data from:
+`agent-market-data-terminal` is the skill packaged by this repository, and it pulls market and macro data from:
 
 - BEA public files and `Data.json`
 - Treasury FiscalData
