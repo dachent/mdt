@@ -10,6 +10,7 @@ Agent Market Data Terminal (aMDT) is a lightweight LLM skill built to give both 
 - BLS public v1
 - World Bank
 - OECD
+- Kenneth French Data Library via direct Fama/French CSV zips
 - FRED
 - VIXCentral
 - CBOE
@@ -20,7 +21,7 @@ Agent Market Data Terminal (aMDT) is a lightweight LLM skill built to give both 
 - Multpl
 - Yahoo Finance via direct `yfinance`
 
-The skill is native-first. It prefers direct machine-readable provider sources such as BEA public files, Treasury FiscalData JSON, Treasury rate feeds, BLS v1 JSON, World Bank indicator JSON, OECD SDMX-JSON, FRED CSV, Macrotrends JSON, Westmetall chart XML, linked EIA XLS workbooks for history pages, VIXCentral XHR-style routes, CBOE CSV endpoints, `vix_utils`' CBOE-backed history loaders, and Multpl's inline chart payload.
+The skill is native-first. It prefers direct machine-readable provider sources such as BEA public files, Treasury FiscalData JSON, Treasury rate feeds, BLS v1 JSON, World Bank indicator JSON, OECD SDMX-JSON, Kenneth French `_CSV.zip` feeds, FRED CSV, Macrotrends JSON, Westmetall chart XML, linked EIA XLS workbooks for history pages, VIXCentral XHR-style routes, CBOE CSV endpoints, `vix_utils`' CBOE-backed history loaders, and Multpl's inline chart payload.
 
 ## Install
 
@@ -45,6 +46,7 @@ After installation, Codex can use the skill as `$agent-market-data-terminal`.
 - VIXCentral no longer depends on Playwright. The helper uses direct requests first, then a homepage-primed `requests.Session()`, then optional `curl_cffi` impersonation if needed.
 - BEA is implemented as a no-auth file/catalog source. It uses direct public files, BEA release pages, and `https://apps.bea.gov/Data.json` instead of the key-based API.
 - Treasury yield-curve and bill-rate data come from Treasury's official TextView-linked CSV/XML feeds, not FiscalData.
+- Fama/French support is structured-feed only. The helper accepts direct Kenneth French `_CSV.zip` feeds and direct archive zip URLs, and rejects HTML page scraping.
 - Westmetall chart parsing is XML-first. Raw chart fetches remain XML-only, while parsed chart mode can fall back to the daily HTML table if the XML endpoint is temporarily unavailable.
 - `vix_utils` is exposed as a separate historical provider and keeps its cache inside a workspace-local directory when used through the bundled helper.
 - The Yahoo path uses direct `yfinance` inside this repo and keeps only the lightweight `history` and `current_snapshot` datasets.

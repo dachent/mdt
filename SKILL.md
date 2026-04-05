@@ -1,11 +1,11 @@
 ---
 name: "agent-market-data-terminal"
-description: "Use when tasks require a lightweight, no-auth market-data skill for BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, or dougransom/vix_utils. Prefer BEA public files and `Data.json`, Treasury FiscalData JSON, Treasury TextView-linked XML/CSV feeds, BLS public v1, World Bank indicator JSON, OECD SDMX-JSON, direct FRED CSV URLs, Macrotrends `/economic-data/{page_id}/{chart_frequency}` JSON, Westmetall chart XML from `/api/marketdata/{lang}/{field}/`, EIA linked XLS/history pages, Multpl inline `pi` chart payloads and table views, VIXCentral term-structure routes with lightweight session-based retries, direct and archive-discovered CBOE CSV endpoints, direct `yfinance` for Yahoo history and current snapshots, and `vix_utils` for historical VIX term structure."
+description: "Use when tasks require a lightweight, no-auth market-data skill for BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, or dougransom/vix_utils. Prefer BEA public files and `Data.json`, Treasury FiscalData JSON, Treasury TextView-linked XML/CSV feeds, BLS public v1, World Bank indicator JSON, OECD SDMX-JSON, direct Kenneth French `_CSV.zip` feeds, direct FRED CSV URLs, Macrotrends `/economic-data/{page_id}/{chart_frequency}` JSON, Westmetall chart XML from `/api/marketdata/{lang}/{field}/`, EIA linked XLS/history pages, Multpl inline `pi` chart payloads and table views, VIXCentral term-structure routes with lightweight session-based retries, direct and archive-discovered CBOE CSV endpoints, direct `yfinance` for Yahoo history and current snapshots, and `vix_utils` for historical VIX term structure."
 ---
 
 # Agent Market Data Terminal (aMDT)
 
-Use this skill when a task needs lightweight, no-auth raw downloads, parsed tables, or provider-aware analysis from BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, or `vix_utils`.
+Use this skill when a task needs lightweight, no-auth raw downloads, parsed tables, or provider-aware analysis from BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, or `vix_utils`.
 
 ## Workflow
 
@@ -35,6 +35,9 @@ Use this skill when a task needs lightweight, no-auth raw downloads, parsed tabl
 - OECD
   Open `references/oecd.md`, then use `scripts/fetch_oecd.py`.
   Use this for SDMX-JSON datasets and keep series/observation dimensions provider-native.
+- Fama/French
+  Open `references/famafrench.md`, then use `scripts/fetch_famafrench.py`.
+  Use this for Kenneth French Data Library factors and portfolio datasets available as direct `_CSV.zip` feeds.
 - FRED
   Open `references/fred.md`, then use `scripts/fetch_fred.py`.
 - Macrotrends
@@ -72,6 +75,7 @@ python .\scripts\fetch_treasury_rates.py --dataset daily_treasury_yield_curve --
 python .\scripts\fetch_bls.py --series-id CUSR0000SA0 --series-id LNS14000000 --start-year 2020 --end-year 2024 --format parsed --output .\outputs\bls_2020_2024.json
 python .\scripts\fetch_worldbank.py --country US --indicator NY.GDP.MKTP.CD --date 2000:2024 --format parsed --output .\outputs\worldbank_us_gdp.json
 python .\scripts\fetch_oecd.py --dataset MEI_CLI --series-key LOLITONO.USA.M --start-time 2000-01 --end-time 2001-12 --format parsed --output .\outputs\oecd_mei_cli.json
+python .\scripts\fetch_famafrench.py --feed-id F-F_Research_Data_Factors_CSV --format parsed --output .\outputs\famafrench_ff3.json
 python .\scripts\fetch_fred.py --series-id GS10 --start 2020-01-01 --end 2026-04-01 --output .\outputs\gs10.csv
 python .\scripts\fetch_macrotrends.py --page-url "https://www.macrotrends.net/datasets/1476/copper-prices-historical-chart-data" --chart-frequency D --output .\outputs\macrotrends_copper_daily.json
 python .\scripts\fetch_vixcentral.py --mode historical --date 2026-04-02 --output .\outputs\vixcentral_2026-04-02.json
@@ -93,6 +97,7 @@ python .\scripts\fetch_yfinance.py --dataset current_snapshot --ticker ^VIX --ti
 - Open `references/bls.md` for BLS public v1 request shapes.
 - Open `references/worldbank.md` for indicator endpoint behavior and pagination notes.
 - Open `references/oecd.md` for SDMX-JSON route structure and flattening expectations.
+- Open `references/famafrench.md` for direct Kenneth French `_CSV.zip` feed ids, archive-url handling, and section parsing expectations.
 - Open `references/fred.md` for valid FRED parameters and the clean CSV contract.
 - Open `references/macrotrends.md` for page-id extraction and valid `chart_frequency` codes.
 - Open `references/vixcentral.md` for route behavior, array shapes, and the lightweight retry order.
@@ -111,6 +116,7 @@ python .\scripts\fetch_yfinance.py --dataset current_snapshot --ticker ^VIX --ti
 - Use BLS public v1 only; v2 registration features are out of scope here.
 - World Bank raw mode should keep the native two-element JSON page response. Parsed mode may paginate to complete the requested panel.
 - For OECD, flatten SDMX dimensions and attributes into rows without inventing a cross-source schema.
+- For Kenneth French Data Library, use only direct `_CSV.zip` feeds or direct archive `_CSV.zip` URLs. Reject `_TXT.zip` files and HTML pages.
 - Do not scrape visible HTML tables from Macrotrends when the JSON endpoint is available.
 - Prefer Westmetall `/api/marketdata/{lang}/{field}/` chart XML over HTML tables when the task is a chart-series request.
 - For EIA DNAV pages, prefer linked XLS files for raw downloads and for history parsing. Use HTML only for summary parsing, metadata extraction, or explicit history fallback.
