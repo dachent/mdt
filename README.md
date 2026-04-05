@@ -25,6 +25,8 @@ The skill is native-first. It prefers direct machine-readable provider sources s
 
 ## Install
 
+### Codex
+
 Clone or copy this repository into your Codex skills directory as:
 
 ```text
@@ -33,10 +35,32 @@ $CODEX_HOME/skills/agent-market-data-terminal
 
 After installation, Codex can use the skill as `$agent-market-data-terminal`.
 
+### Claude Code
+
+Clone or copy this repository into your Claude Code skills directory.
+
+For a user-global install (available in all projects):
+
+```text
+~/.claude/skills/agent-market-data-terminal/
+```
+
+For a project-local install (available only in a specific project):
+
+```text
+.claude/skills/agent-market-data-terminal/
+```
+
+After installation, Claude Code can use the skill as `/agent-market-data-terminal`.
+
+Claude Code also reads `CLAUDE.md` automatically when you open this repository as a project directory, providing layout and routing context without an explicit invocation.
+
 ## Layout
 
-- [SKILL.md](./SKILL.md): trigger metadata and workflow
+- [SKILL.md](./SKILL.md): trigger metadata and workflow (shared by Codex and Claude Code)
 - [agents/openai.yaml](./agents/openai.yaml): Codex UI metadata
+- [agents/claude.md](./agents/claude.md): Claude Code metadata
+- [CLAUDE.md](./CLAUDE.md): Claude Code auto-loaded project context
 - [references/](./references/): provider-specific guidance and source contracts
 - [scripts/](./scripts/): fetch helpers for each provider
 
