@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Market Data Terminal (aMDT)"
   short_description: "Lightweight no-auth market and macro data for agents and cloud chatbots"
-  default_prompt: "Use $agent-market-data-terminal to fetch BEA, Treasury FiscalData, Treasury rates, BLS, World Bank, OECD, FRED, VIXCentral, CBOE, vix_utils, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV, or Multpl data into this workspace."
+  default_prompt: "Use $agent-market-data-terminal to fetch BEA, Treasury FiscalData, Treasury rates, BLS, World Bank, OECD, FRED, VIXCentral, CBOE, vix_utils, Macrotrends, direct Yahoo Finance via yfinance, Westmetall, EIA DNAV, or Multpl data into this workspace."
