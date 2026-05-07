@@ -1,11 +1,11 @@
 ---
 name: "agent-market-data-terminal"
-description: "Use when tasks require a lightweight, no-auth market-data skill for BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, or dougransom/vix_utils. Prefer BEA public files and `Data.json`, Treasury FiscalData JSON, Treasury TextView-linked XML/CSV feeds, BLS public v1, World Bank indicator JSON, OECD SDMX-JSON, direct Kenneth French `_CSV.zip` feeds, direct FRED CSV URLs, Macrotrends `/economic-data/{page_id}/{chart_frequency}` JSON, Westmetall chart XML from `/api/marketdata/{lang}/{field}/`, EIA linked XLS/history pages, Multpl inline `pi` chart payloads and table views, VIXCentral term-structure routes with lightweight session-based retries, direct and archive-discovered CBOE CSV endpoints, direct `yfinance` for Yahoo history and current snapshots, and `vix_utils` for historical VIX term structure."
+description: "Use when tasks require a lightweight, no-auth market-data skill for BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, dougransom/vix_utils, Federal Reserve DDP (H.10 / H.15), CFTC Commitments of Traders, foreign central-bank yield archives (Bundesbank / BoE / RBA / BoC / BoJ), USDA AMS Market News, ICCO and ICO commodity references, ICE settlement archives, World Bank Pink Sheet, IMF Primary Commodity Prices, or iShares ETF holdings. Prefer BEA public files and `Data.json`, Treasury FiscalData JSON, Treasury TextView-linked XML/CSV feeds, BLS public v1, World Bank indicator JSON, OECD SDMX-JSON, direct Kenneth French `_CSV.zip` feeds, direct FRED CSV URLs, Macrotrends `/economic-data/{page_id}/{chart_frequency}` JSON, Westmetall chart XML from `/api/marketdata/{lang}/{field}/`, EIA linked XLS/history pages, Multpl inline `pi` chart payloads and table views, VIXCentral term-structure routes with lightweight session-based retries, direct and archive-discovered CBOE CSV endpoints, direct `yfinance` for Yahoo history and current snapshots, `vix_utils` for historical VIX term structure, Federal Reserve DDP all-release SDMX-XML ZIPs, CFTC `/files/dea/history/` annual ZIP archives, Bundesbank SDMX-JSON and BoE iadb / BoC Valet / RBA F2 XLSX feeds, USDA AMS bulk archives and slug-driven REST, World Bank Pink Sheet CMO XLSX, IMF External_Data.xls, and iShares public holdings AJAX endpoints."
 ---
 
 # Agent Market Data Terminal (aMDT)
 
-Use this skill when a task needs lightweight, no-auth raw downloads, parsed tables, or provider-aware analysis from BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, or `vix_utils`.
+Use this skill when a task needs lightweight, no-auth raw downloads, parsed tables, or provider-aware analysis from BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, Macrotrends, Yahoo Finance, Westmetall, EIA DNAV pages, Multpl, CBOE, `vix_utils`, Federal Reserve DDP, CFTC, foreign central-bank yield archives, USDA AMS, ICCO, ICO, ICE settlements, World Bank Pink Sheet, IMF Primary Commodity Prices, or iShares ETF holdings.
 
 ## Workflow
 
@@ -65,6 +65,36 @@ Use this skill when a task needs lightweight, no-auth raw downloads, parsed tabl
 - Yahoo Finance
   Open `references/yahoo.md`, then use `scripts/fetch_yfinance.py`.
   Keep Yahoo requests direct through `yfinance` and limit the helper surface to `history` and `current_snapshot`.
+- Federal Reserve DDP
+  Open `references/federalreserve.md`, then use `scripts/fetch_federalreserve.py`.
+  Use this for H.10 (FX) and H.15 (rates) — prefer the all-release SDMX-XML ZIP for full history; the current-release HTML page is for the latest weekly print only.
+- CFTC
+  Open `references/cftc.md`, then use `scripts/fetch_cftc.py`.
+  Pull the Legacy / Disaggregated / TFF / Combined / Supplemental annual ZIPs from `/files/dea/history/`, not the per-week pages.
+- Central Banks (Bundesbank / BoE / RBA / BoC / BoJ)
+  Open `references/central_banks.md`, then use `scripts/fetch_central_banks.py --source {bundesbank|boe|rba|boc|boj}`.
+  Foreign government bond yield archives. Bundesbank SDMX-JSON, BoE iadb CSV, BoC Valet REST, RBA F2 XLSX. BoJ Time-Series Search is fragile — prefer FRED `IRLTLT01JPM156N` for 10Y JGB.
+- USDA AMS
+  Open `references/usda_ams.md`, then use `scripts/fetch_usda_ams.py`.
+  Daily ag / livestock / cotton cash. Prefer `/public_data` ZIP archives for backfill; use slug-driven REST for recent runs.
+- ICCO
+  Open `references/icco.md`, then use `scripts/fetch_icco.py`.
+  Daily cocoa indicator price. Public homepage / statistics-page tables only; bulk historical data is paywalled — use `worldbank_pinksheet` for monthly fallback.
+- ICO
+  Open `references/ico.md`, then use `scripts/fetch_ico.py`.
+  Coffee composite indicator. Public ICO pages and Coffee Market Report HTML; bulk daily prices are subscription-only — use `worldbank_pinksheet` for monthly fallback.
+- ICE Settlements
+  Open `references/ice_settlements.md`, then use `scripts/fetch_ice_settlements.py`.
+  Thin best-effort scraper for caller-provided ICE marketdata report URLs. Prefer USDA AMS for cotton and `worldbank_pinksheet` for sugar/cotton monthly history.
+- World Bank Pink Sheet
+  Open `references/worldbank_pinksheet.md`, then use `scripts/fetch_worldbank_pinksheet.py`.
+  Monthly nominal and real prices for ~70 commodities back to 1960 via the CMO XLSX workbook. Separate provider from `worldbank` (WDI JSON).
+- IMF Primary Commodity Prices
+  Open `references/imf_commodities.md`, then use `scripts/fetch_imf_commodities.py`.
+  Monthly XLS workbook fallback for ~70 commodities back to 1992. Redundant with `worldbank_pinksheet`; prefer Pink Sheet when both fit.
+- iShares
+  Open `references/ishares.md`, then use `scripts/fetch_ishares.py`.
+  ETF universe + current and as-of-date holdings via the public AJAX endpoint. Polite rules apply: single user-agent, no concurrency, conservative throttle. Endpoint discovery informed by `talsan/ishares` (no license; reference only — no code vendored).
 
 ## Commands
 
@@ -87,6 +117,19 @@ python .\scripts\fetch_cboe.py --mode futures-archive --product VX --year 2013 -
 python .\scripts\fetch_vix_utils.py --dataset spot-wide --format parsed --output .\outputs\vix_utils_spot_wide.json
 python .\scripts\fetch_yfinance.py --dataset history --ticker SPY --ticker TLT --start 2020-01-01 --end today --interval 1d --format parsed --output .\outputs\yfinance_history.json
 python .\scripts\fetch_yfinance.py --dataset current_snapshot --ticker ^VIX --ticker SPY --format parsed --output .\outputs\yfinance_snapshot.json
+python .\scripts\fetch_federalreserve.py --release H15 --format parsed --output .\outputs\fed_h15.json
+python .\scripts\fetch_cftc.py --family legacy_futures_only --year 2024 --format parsed --output .\outputs\cftc_legacy_2024.json
+python .\scripts\fetch_central_banks.py --source boc --series V122487 --start 2020-01-01 --end 2024-12-31 --format parsed --output .\outputs\boc_10y.json
+python .\scripts\fetch_central_banks.py --source bundesbank --key D.BBK01.WT1010.D.WTH --start 2020-01-01 --end 2024-12-31 --format parsed --output .\outputs\bundesbank_10y.json
+python .\scripts\fetch_usda_ams.py --commodity corn --format parsed --output .\outputs\usda_corn.json
+python .\scripts\fetch_usda_ams.py --bulk --format parsed --output .\outputs\usda_public_data_index.json
+python .\scripts\fetch_icco.py --format parsed --output .\outputs\icco_homepage.json
+python .\scripts\fetch_ico.py --format parsed --output .\outputs\ico_public_market_info.json
+python .\scripts\fetch_ice_settlements.py --url "https://www.ice.com/marketdata/reports/180" --format parsed --output .\outputs\ice_report_180.json
+python .\scripts\fetch_worldbank_pinksheet.py --frequency monthly --format parsed --output .\outputs\pinksheet_monthly.json
+python .\scripts\fetch_imf_commodities.py --format parsed --output .\outputs\imf_commodities.json
+python .\scripts\fetch_ishares.py --mode holdings --ticker IWV --format parsed --output .\outputs\ishares_iwv_holdings.json
+python .\scripts\fetch_ishares.py --mode history --ticker IWV --asof 2024-12-31 --format parsed --output .\outputs\ishares_iwv_2024-12-31.json
 ```
 
 ## When to load references
@@ -107,6 +150,16 @@ python .\scripts\fetch_yfinance.py --dataset current_snapshot --ticker ^VIX --ti
 - Open `references/cboe.md` for direct CSV endpoint patterns and parsed/raw guidance.
 - Open `references/vix_utils.md` for dataset routing and cache-directory handling.
 - Open `references/yahoo.md` for the direct `yfinance` helper contract, supported datasets, and snapshot-output notes.
+- Open `references/federalreserve.md` for H.10 / H.15 DDP discovery, all-release SDMX-XML ZIPs, and series-builder routes.
+- Open `references/cftc.md` for the COT report-family annual ZIP archive paths and bulk multi-year archives.
+- Open `references/central_banks.md` for Bundesbank / BoE / RBA / BoC / BoJ sub-source endpoints, series codes, and per-source caveats.
+- Open `references/usda_ams.md` for the curated commodity slug map, REST endpoint shape, and `/public_data` bulk-archive layout.
+- Open `references/icco.md` for ICCO daily cocoa indicator surface and the paid-channel boundary.
+- Open `references/ico.md` for ICO composite indicator surface and the paid-channel boundary.
+- Open `references/ice_settlements.md` for the thin ICE marketdata-report scraper contract and detection caveats.
+- Open `references/worldbank_pinksheet.md` for the CMO monthly / annual XLSX layout and sheet selection.
+- Open `references/imf_commodities.md` for the IMF External_Data.xls monthly workbook contract.
+- Open `references/ishares.md` for the universe / holdings / history modes, polite-rule defaults, and the curated ticker map.
 - Open `references/normalization.md` only when a task explicitly needs cross-source merging.
 
 ## Guardrails
@@ -126,4 +179,12 @@ python .\scripts\fetch_yfinance.py --dataset current_snapshot --ticker ^VIX --ti
 - For CBOE futures archive requests, use the public settlement-archive page or known direct CSVs instead of scraping rendered tables.
 - For `vix_utils`, keep cache and downloaded data inside the workspace-local cache directory.
 - For Yahoo Finance, use direct `yfinance` through `fetch_yfinance.py`; do not require a separate repo checkout or YAML export config.
+- Prefer Bundesbank SDMX-JSON over `?format=csv` for date-range queries; CSV is fine for full-history dumps.
+- BoJ Time-Series Search is fragile — for 10Y JGB, prefer FRED `IRLTLT01JPM156N` as a fallback. Do not retry-loop the BoJ form.
+- ICCO and ICO: prefer any documented CSV/XLS download link over scraping HTML; if only HTML is available, parse the homepage / statistics-page table for current values and document that historical bulk data is paywalled.
+- USDA AMS: for backfill > 1 year, use `/public_data` ZIP archives, not the REST API.
+- World Bank Pink Sheet: use the `Monthly Prices` sheet by default; preserve provider-native commodity headers — do not invent column-name mappings.
+- CFTC Legacy Futures Only: pull the compressed annual ZIP from `/files/dea/history/`, not the per-week page.
+- Federal Reserve DDP H.10 / H.15: prefer the all-release SDMX-XML ZIP for full history; the current-release HTML page is for the latest weekly print only.
+- iShares: be polite — single user-agent, no concurrency, conservative throttle. Endpoint discovery informed by `talsan/ishares` (no license declared; reference for endpoint patterns only — do not vendor code).
 - Do not normalize providers into one schema unless the user asked for that.

@@ -41,6 +41,7 @@ https://www.macrotrends.net/economic-data/1476/D
 ## Confirmed chart frequencies
 
 - `D`
+- `W`
 - `M`
 - `INDEXMONTHLY`
 - `INDEXMONTHLYINFLATION`

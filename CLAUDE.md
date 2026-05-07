@@ -1,6 +1,6 @@
 # Agent Market Data Terminal (aMDT) — Claude Code Project Context
 
-Agent Market Data Terminal (aMDT) is a lightweight, no-auth LLM skill that provides direct access to market and macro data from BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, Macrotrends, Yahoo Finance via yfinance, Westmetall, EIA DNAV, Multpl, CBOE, and dougransom/vix_utils. All providers use public endpoints that require no API keys.
+Agent Market Data Terminal (aMDT) is a lightweight, no-auth LLM skill that provides direct access to market and macro data from BEA, Treasury FiscalData, Treasury rates feeds, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, Macrotrends, Yahoo Finance via yfinance, Westmetall, EIA DNAV, Multpl, CBOE, dougransom/vix_utils, Federal Reserve DDP (H.10 / H.15), CFTC Commitments of Traders, foreign central-bank yield archives (Bundesbank / BoE / RBA / BoC / BoJ), USDA AMS Market News, ICCO, ICO, ICE settlement archives, World Bank Pink Sheet, IMF Primary Commodity Prices, and iShares ETF holdings. All providers use public endpoints that require no API keys.
 
 ## Skill invocation
 
@@ -23,8 +23,8 @@ $agent-market-data-terminal
 | `SKILL.md` | Skill trigger metadata and workflow — shared by Codex and Claude Code |
 | `agents/openai.yaml` | Codex UI metadata only |
 | `agents/claude.md` | Claude Code metadata only |
-| `references/` | Provider-specific reference docs (16 files) |
-| `scripts/` | Python fetch helpers, one per provider (16 files) |
+| `references/` | Provider-specific reference docs (26 providers + `normalization.md`) |
+| `scripts/` | Python fetch helpers, one per provider (26 files) |
 
 ## Provider routing summary
 
@@ -46,6 +46,16 @@ $agent-market-data-terminal
 | CBOE | `references/cboe.md` | `scripts/fetch_cboe.py` |
 | vix_utils | `references/vix_utils.md` | `scripts/fetch_vix_utils.py` |
 | Yahoo Finance | `references/yahoo.md` | `scripts/fetch_yfinance.py` |
+| Federal Reserve DDP | `references/federalreserve.md` | `scripts/fetch_federalreserve.py` |
+| CFTC | `references/cftc.md` | `scripts/fetch_cftc.py` |
+| Central Banks (DE / GB / AU / CA / JP) | `references/central_banks.md` | `scripts/fetch_central_banks.py` |
+| USDA AMS | `references/usda_ams.md` | `scripts/fetch_usda_ams.py` |
+| ICCO | `references/icco.md` | `scripts/fetch_icco.py` |
+| ICO | `references/ico.md` | `scripts/fetch_ico.py` |
+| ICE Settlements | `references/ice_settlements.md` | `scripts/fetch_ice_settlements.py` |
+| World Bank Pink Sheet | `references/worldbank_pinksheet.md` | `scripts/fetch_worldbank_pinksheet.py` |
+| IMF Primary Commodity Prices | `references/imf_commodities.md` | `scripts/fetch_imf_commodities.py` |
+| iShares | `references/ishares.md` | `scripts/fetch_ishares.py` |
 
 Open the relevant `references/*.md` file before running a script. See `SKILL.md` for full provider routing rules and guardrails.
 
@@ -61,12 +71,13 @@ Open the relevant `references/*.md` file before running a script. See `SKILL.md`
 Some helpers require optional packages. Install as needed:
 
 ```
-pip install openpyxl      # BEA .xlsx workbook parsing
+pip install openpyxl      # BEA, RBA F2, World Bank Pink Sheet .xlsx parsing
 pip install pandas        # Yahoo Finance and some dataframe-backed providers
 pip install yfinance      # Yahoo Finance direct access
-pip install xlrd          # EIA history workbook parsing
+pip install xlrd          # EIA and IMF Commodity .xls history workbook parsing
 pip install curl_cffi     # VIXCentral TLS-impersonation fallback (optional)
 pip install vix_utils     # Standalone historical VIX term-structure provider
+pip install lxml          # Optional faster SDMX-XML parsing for Federal Reserve DDP
 ```
 
 Scripts guard optional imports so syntax validation passes even when packages are absent.
