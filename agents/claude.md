@@ -14,7 +14,7 @@ short_description: "Lightweight no-auth market and macro data for Claude Code ag
 
 ## Default prompt
 
-Use /agent-market-data-terminal to fetch BEA, Treasury FiscalData, Treasury rates, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, CBOE, vix_utils, Macrotrends, direct Yahoo Finance via yfinance, Westmetall, EIA DNAV, or Multpl data into this workspace.
+Use /agent-market-data-terminal to fetch BEA, Treasury FiscalData, Treasury rates, BLS, World Bank, OECD, Kenneth French Data Library, FRED, VIXCentral, CBOE, vix_utils, Macrotrends, direct Yahoo Finance via yfinance, Westmetall, EIA DNAV, Multpl, Federal Reserve DDP (H.10 / H.15), CFTC Commitments of Traders, foreign central-bank yield archives (Bundesbank / BoE / RBA / BoC / BoJ), USDA AMS, ICCO, ICO, ICE settlement archives, World Bank Pink Sheet, IMF Primary Commodity Prices, or iShares ETF holdings into this workspace.
 
 ## Notes
 
